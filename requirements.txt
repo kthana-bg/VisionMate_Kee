@@ -1,6 +1,6 @@
 streamlit==1.31.0
 streamlit-webrtc==0.45.1
-opencv-python-headless==4.9.0.80
+opencv-python-headless>=4.8.0
 mediapipe==0.10.9
 pandas==2.2.3
 plotly==5.18.0
