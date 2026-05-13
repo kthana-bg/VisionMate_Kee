@@ -1,0 +1,29 @@
+app:
+  name: "VisionMate"
+  version: "1.0.0"
+
+database:
+  path: "visionmate.db"
+
+models:
+  eye:
+    a1_threshold: 0.25
+    b1_threshold: 0.6
+    c1_threshold: 0.5
+    c1_model_path: "models/custom_eye_model.keras"
+    
+  posture:
+    a2_good_range: [70, 110]
+    b2_threshold: 60
+    c2_threshold: 0.6
+    c2_model_path: "models/custom_posture_model.keras"
+    c2_sequence_length: 20
+
+face_auth:
+  similarity_threshold: 0.75
+  registration_captures: 5
+
+webcam:
+  width: 640
+  height: 480
+  fps: 30
