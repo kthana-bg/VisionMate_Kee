@@ -1,0 +1,16 @@
+[project]
+name = "visionmate"
+version = "1.0.0"
+dependencies = [
+    "streamlit",
+    "streamlit-webrtc",
+    "opencv-python-headless",
+    "mediapipe",
+    "numpy",
+    "pandas",
+    "plotly",
+    "scikit-learn",
+    "pyyaml",
+    "pillow",
+]
+requires-python = ">=3.11,<3.12"
