@@ -1,8 +1,0 @@
-[server]
-maxMessageSize = 200
-
-[theme]
-base = "dark"
-
-[browser]
-gatherUsageStats = false
