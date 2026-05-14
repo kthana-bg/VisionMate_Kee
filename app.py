@@ -1,23 +1,39 @@
 import os
+import sys
 
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
 os.environ["MEDIAPIPE_GPU_DISABLED"] = "1"
-
-# Hide GPU from TensorFlow
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-# Reduce log noise
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["GLOG_minloglevel"] = "2"
 os.environ["GLOG_logtostderr"] = "0"
-
-# OpenCV / threading
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "0"
 os.environ["OMP_NUM_THREADS"] = "1"
 
-import logging
-logging.getLogger("mediapipe").setLevel(logging.FATAL)
+# Global stderr filter to drop MediaPipe EGL spam from ALL threads
+class FilteredStderr:
+    def __init__(self, original):
+        self._original = original
+        self._filter = b"gl_context.cc"  # byte pattern for C++ stderr
+    
+    def write(self, data):
+        if isinstance(data, bytes):
+            if self._filter in data:
+                return
+        elif isinstance(data, str):
+            if "gl_context.cc" in data or "eglMakeCurrent" in data or "RET_CHECK failure" in data:
+                return
+        self._original.write(data)
+    
+    def flush(self):
+        self._original.flush()
+    
+    def __getattr__(self, name):
+        return getattr(self._original, name)
 
+sys.stderr = FilteredStderr(sys.stderr)
+
+# NOW import everything else
 import streamlit as st
 import cv2
 import numpy as np
