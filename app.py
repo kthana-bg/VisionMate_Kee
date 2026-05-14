@@ -558,10 +558,6 @@ def show_dashboard():
                     )
         else:
             st.info("Not enough data yet. Continue using VisionMate to see your analytics.")
-    
-    st.divider()
-    st.caption("VisionMate - AI Eye Strain Monitor and Ergonomic Coach")
-
 
 # ============================================================================
 # MAIN ENTRY POINT
