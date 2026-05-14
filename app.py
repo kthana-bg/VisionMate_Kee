@@ -2,6 +2,8 @@ import os
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "0"
 os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MEDIAPIPE_GPU_DISABLED"] = "1"
+os.environ["GLOG_minloglevel"] = "2"
 
 import streamlit as st
 import cv2
@@ -21,8 +23,6 @@ from database_manager import DatabaseManager
 from model_comparator import ModelComparator
 from utils.face_auth import FaceAuthenticator
 
-# Force CPU for MediaPipe - must be before any mediapipe import
-os.environ["MEDIAPIPE_GPU_DISABLED"] = "1"
 
 # Configuration
 try:
