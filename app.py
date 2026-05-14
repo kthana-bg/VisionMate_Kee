@@ -1,6 +1,3 @@
-# VisionMate - AI Eye Strain Monitor and Ergonomic Coach
-# Faculty of Artificial Intelligence and Cyber Security, UTeM
-
 import os
 # Force CPU mode for MediaPipe to avoid GPU errors in headless environment
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
@@ -154,11 +151,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# THREAD-SAFE VIDEO PROCESSOR FOR WEBRTC
-# NO st.session_state ACCESS INSIDE THIS CLASS
-# ============================================================================
-
 class VisionMateVideoProcessor(VideoProcessorBase):
     """
     Processes video frames in real-time using WebRTC.
@@ -297,7 +289,7 @@ def show_login_register_page():
             st.markdown("#### Login")
             login_frame = st.camera_input("Look at the camera", key="login_camera", label_visibility="collapsed")
             
-            if st.button("Login with Face", type="primary", width='stretch'):
+            if st.button("Login with Face", type="primary", use_container_width=True):
                 if login_frame is not None:
                     bytes_data = login_frame.getvalue()
                     nparr = np.frombuffer(bytes_data, np.uint8)
@@ -339,7 +331,7 @@ def show_login_register_page():
     with col_right:
         with st.container():
             st.markdown("#### Create Account")
-            new_user_name = st.text_input("Enter your full name", placeholder="e.g., John Doe")
+            new_user_name = st.text_input("Enter your full name", placeholder="")
             
             st.markdown("Capture 5 face images from different angles")
             
@@ -356,7 +348,7 @@ def show_login_register_page():
                         reg_frames.append(frame)
                         st.success("OK")
             
-            if st.button("Complete Registration", type="primary", width='stretch'):
+            if st.button("Complete Registration", type="primary", use_container_width=True):
                 if new_user_name and len(reg_frames) >= 3:
                     embeddings = []
                     for frame in reg_frames:
@@ -515,7 +507,7 @@ def show_dashboard():
         df = st.session_state.db.get_user_analytics(st.session_state.user_id, hours=hours)
         
         if not df.empty:
-            st.markdown("#### Eye Strain Trend (Model C1 - My Custom CNN)")
+            st.markdown("#### Eye Strain Trend")
             
             fig_eye = px.line(df, x='timestamp', y='eye_score',
                               title='Eye Fatigue Score Over Time',
@@ -569,7 +561,6 @@ def show_dashboard():
     
     st.divider()
     st.caption("VisionMate - AI Eye Strain Monitor and Ergonomic Coach")
-    st.caption("Faculty of Artificial Intelligence and Cyber Security, Universiti Teknikal Malaysia Melaka")
 
 
 # ============================================================================
