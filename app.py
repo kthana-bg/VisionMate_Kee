@@ -1,3 +1,5 @@
+import os
+
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
 os.environ["MEDIAPIPE_GPU_DISABLED"] = "1"
 
