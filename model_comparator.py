@@ -20,6 +20,17 @@ tf.config.set_logical_device_configuration(
     [tf.config.LogicalDeviceConfiguration()]
 )
 
+import sys
+from io import StringIO
+
+class SuppressEGL:
+    def __enter__(self):
+        self._stderr = sys.stderr
+        sys.stderr = StringIO()
+        return self
+    def __exit__(self, *args):
+        sys.stderr = self._stderr
+
 class ModelComparator:
     
     def __init__(self, config: dict = None):
