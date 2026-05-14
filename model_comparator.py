@@ -5,37 +5,13 @@ import time
 from collections import deque
 import tensorflow as tf
 import os
-import threading
-import warnings
-
-# Force CPU for TensorFlow
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-# Configure TensorFlow for minimal latency
-tf.config.set_visible_devices([], 'GPU')
-physical_devices = tf.config.list_physical_devices('CPU')
-tf.config.set_logical_device_configuration(
-    physical_devices[0],
-    [tf.config.LogicalDeviceConfiguration()]
-)
-
-import sys
-from io import StringIO
-
-class SuppressEGL:
-    def __enter__(self):
-        self._stderr = sys.stderr
-        sys.stderr = StringIO()
-        return self
-    def __exit__(self, *args):
-        sys.stderr = self._stderr
 
 class ModelComparator:
     
     def __init__(self, config: dict = None):
         self.config = config or {}
         
+        # Initialize MediaPipe
         self.mp_face_mesh = mp.solutions.face_mesh
         self.mp_pose = mp.solutions.pose
         
@@ -49,7 +25,7 @@ class ModelComparator:
         
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
-            model_complexity=0,
+            model_complexity=1,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
@@ -163,6 +139,7 @@ class ModelComparator:
         # Simulated MobileNetV2 baseline
         start = time.perf_counter()
         
+        # Simulate realistic CNN inference
         import random
         score = random.uniform(0.2, 0.7)
         classification = 'STRAINED' if score > 0.6 else 'NORMAL'
@@ -176,7 +153,7 @@ class ModelComparator:
         }
     
     def _model_c1(self, face_landmarks, frame):
-        # Custom trained CNN model - NON-BLOCKING
+        # Custom trained CNN model
         start = time.perf_counter()
         
         if self.custom_eye_model is None:
@@ -208,8 +185,8 @@ class ModelComparator:
         eye_normalized = eye_resized / 255.0
         input_tensor = np.expand_dims(eye_normalized, axis=(0, -1))
         
-        # Use predict_on_batch for single-sample inference (faster than predict)
-        pred = self.custom_eye_model.predict_on_batch(input_tensor)[0][0]
+        # Predict
+        pred = self.custom_eye_model.predict(input_tensor, verbose=0)[0][0]
         score = float(pred)
         classification = 'STRAINED' if score > 0.5 else 'NORMAL'
         
@@ -331,7 +308,7 @@ class ModelComparator:
         }
     
     def _model_c2(self, pose_landmarks, frame):
-        # Custom trained LSTM model - NON-BLOCKING
+        # Custom trained LSTM model
         start = time.perf_counter()
         
         if self.custom_posture_model is None:
@@ -346,8 +323,7 @@ class ModelComparator:
         sequence = np.array(self.posture_history)
         input_tensor = np.expand_dims(sequence, axis=0)
         
-        # Use predict_on_batch for single-sample inference (faster than predict)
-        pred = self.custom_posture_model.predict_on_batch(input_tensor)[0][0]
+        pred = self.custom_posture_model.predict(input_tensor, verbose=0)[0][0]
         prob = float(pred)
         status = 'SLOUCHING' if prob > 0.6 else 'GOOD'
         
