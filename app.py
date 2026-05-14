@@ -381,7 +381,7 @@ def show_dashboard():
     # Logout button
     col_right, col_left = st.columns([5, 1])
     with col_left:
-        if st.button("Logout", width='stretch'):
+        if st.button("Logout", use_container_width=True):
             st.session_state.db.end_session(st.session_state.session_id)
             st.session_state.logged_in = False
             st.session_state.user_id = None
