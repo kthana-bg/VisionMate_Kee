@@ -331,9 +331,10 @@ def live_monitor_page():
     with col_video:
         st.markdown("**Live Video Feed**")
         
-        # Minimal RTC config - local processing only for best performance
+        # REPLACE THIS BLOCK:
         rtc_configuration = RTCConfiguration({
-            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}],
+            "iceTransportPolicy": "all"
         })
         
         # Start REAL-TIME WebRTC streamer
