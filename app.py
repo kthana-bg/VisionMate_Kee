@@ -461,24 +461,7 @@ def show_dashboard():
         else:
             st.info("Please wait... System initializing")
         
-        st.divider()
-        
-        # Quick tips
-        st.markdown("#### Quick Tips for Healthy Computing")
-        tips_col1, tips_col2, tips_col3 = st.columns(3)
-        
-        with tips_col1:
-            st.markdown("**20-20-20 Rule**")
-            st.caption("Every 20 minutes, look at something 20 feet away for 20 seconds")
-        
-        with tips_col2:
-            st.markdown("**Ergonomic Setup**")
-            st.caption("Top of screen at eye level, back supported, feet flat on floor")
-        
-        with tips_col3:
-            st.markdown("**Take Breaks**")
-            st.caption("Stand up and stretch every 30-60 minutes")
-    
+
     # ========================================================================
     # TAB 2: ANALYTICS
     # ========================================================================
