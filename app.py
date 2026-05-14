@@ -1,39 +1,8 @@
 import os
-import sys
-
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
-os.environ["MEDIAPIPE_GPU_DISABLED"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["GLOG_minloglevel"] = "2"
-os.environ["GLOG_logtostderr"] = "0"
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "0"
 os.environ["OMP_NUM_THREADS"] = "1"
 
-# Global stderr filter to drop MediaPipe EGL spam from ALL threads
-class FilteredStderr:
-    def __init__(self, original):
-        self._original = original
-        self._filter = b"gl_context.cc"  # byte pattern for C++ stderr
-    
-    def write(self, data):
-        if isinstance(data, bytes):
-            if self._filter in data:
-                return
-        elif isinstance(data, str):
-            if "gl_context.cc" in data or "eglMakeCurrent" in data or "RET_CHECK failure" in data:
-                return
-        self._original.write(data)
-    
-    def flush(self):
-        self._original.flush()
-    
-    def __getattr__(self, name):
-        return getattr(self._original, name)
-
-sys.stderr = FilteredStderr(sys.stderr)
-
-# NOW import everything else
 import streamlit as st
 import cv2
 import numpy as np
@@ -45,13 +14,10 @@ from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfigurati
 import av
 import threading
 from datetime import datetime
-from collections import deque
-import queue
 
 from database_manager import DatabaseManager
 from model_comparator import ModelComparator
 from utils.face_auth import FaceAuthenticator
-
 
 # Configuration
 try:
@@ -113,128 +79,60 @@ def init_state():
 
 init_state()
 
-
-# Thread-safe result sharing between processor and main thread
-class ResultBuffer:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._eye_status = "NORMAL"
-        self._posture_status = "GOOD"
-        self._health = 50
-        self._last_update = 0
-    
-    def update(self, eye_status, posture_status, health):
-        with self._lock:
-            self._eye_status = eye_status
-            self._posture_status = posture_status
-            self._health = health
-            self._last_update = time.time()
-    
-    def get(self):
-        with self._lock:
-            return self._eye_status, self._posture_status, self._health, self._last_update
-
-
-# Global result buffer (shared across instances)
-_result_buffer = ResultBuffer()
-
-
-# Background worker for heavy processing
-class ProcessingWorker(threading.Thread):
-    def __init__(self, comparator, db, user_id, session_id):
-        super().__init__(daemon=True)
-        self.comparator = comparator
-        self.db = db
-        self.user_id = user_id
-        self.session_id = session_id
-        self.input_queue = queue.Queue(maxsize=2)  # Drop old frames if backlog
-        self.running = True
-    
-    def run(self):
-        while self.running:
-            try:
-                frame, timestamp = self.input_queue.get(timeout=0.5)
-            except queue.Empty:
-                continue
-            
-            try:
-                results = self.comparator.process_frame(frame)
-                
-                eye_result = results.get('eye', {}).get('C1', {})
-                posture_result = results.get('posture', {}).get('C2', {})
-                
-                eye_status = eye_result.get('classification', 'NORMAL')
-                posture_status = posture_result.get('status', 'GOOD')
-                health = results.get('health_score', 50)
-                
-                _result_buffer.update(eye_status, posture_status, health)
-                
-                # Database logging - non-blocking fire-and-forget
-                if self.session_id and self.db:
-                    try:
-                        self.db.log_model_comparison(
-                            self.session_id, 
-                            self.user_id, 
-                            results
-                        )
-                    except:
-                        pass
-                        
-            except Exception:
-                pass
-    
-    def submit_frame(self, frame):
-        try:
-            # Put without blocking, drop if full
-            self.input_queue.put_nowait((frame, time.time()))
-        except queue.Full:
-            pass  # Skip frame if worker is behind
-    
-    def stop(self):
-        self.running = False
-
-
-# REAL-TIME LIVE VIDEO PROCESSOR - Minimal blocking
+# REAL-TIME LIVE VIDEO PROCESSOR
 class LiveVideoProcessor(VideoProcessorBase):
+    type_ = "code"
     
     def __init__(self):
         self.frame_count = 0
         self.last_process_time = 0
         self.process_interval = 0.5
-        self.worker = None
-        self._init_worker()
-    
-    def _init_worker(self):
-        # Initialize background worker if comparator exists
-        if st.session_state.get('comparator') and self.worker is None:
-            self.worker = ProcessingWorker(
-                st.session_state.comparator,
-                st.session_state.get('db'),
-                st.session_state.get('user_id'),
-                st.session_state.get('session_id')
-            )
-            self.worker.start()
-    
+        
     def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        current_time = time.time()
-        self.frame_count += 1
-        
-        # Submit to background worker every 0.5s, never block
-        if (current_time - self.last_process_time > self.process_interval):
-            self.last_process_time = current_time
-            self._init_worker()
-            if self.worker:
-                self.worker.submit_frame(img.copy())
-        
-        # Draw overlay using latest results (never blocks)
-        self._draw_live_overlay(img)
-        
+        try:
+            img = frame.to_ndarray(format="bgr24")
+            current_time = time.time()
+            
+            # Real-time processing every 0.5 seconds
+            if (current_time - self.last_process_time > self.process_interval and 
+                st.session_state.get('comparator')):
+                self.last_process_time = current_time
+                try:
+                    results = st.session_state.comparator.process_frame(img.copy())
+                    
+                    # Update LIVE status immediately
+                    eye_result = results.get('eye', {}).get('C1', {})
+                    posture_result = results.get('posture', {}).get('C2', {})
+                    
+                    st.session_state.live_eye_status = eye_result.get('classification', 'NORMAL')
+                    st.session_state.live_posture_status = posture_result.get('status', 'GOOD')
+                    st.session_state.live_health = results.get('health_score', 50)
+                    
+                    # Database logging
+                    if st.session_state.get('session_id') and st.session_state.get('db'):
+                        st.session_state.db.log_model_comparison(
+                            st.session_state.session_id, 
+                            st.session_state.user_id, 
+                            results
+                        )
+                        
+                except Exception as e:
+                    pass
+            
+            # Draw real-time overlay on video
+            self._draw_live_overlay(img)
+            
+        except Exception:
+            pass
+            
         return av.VideoFrame.from_ndarray(img, format="bgr24")
     
     def _draw_live_overlay(self, img):
         try:
-            eye_status, posture_status, health, _ = _result_buffer.get()
+            # Get current live status
+            health = st.session_state.get('live_health', 50)
+            eye_status = st.session_state.get('live_eye_status', 'NORMAL')
+            posture_status = st.session_state.get('live_posture_status', 'GOOD')
             
             h, w = img.shape[:2]
             
@@ -271,7 +169,6 @@ class LiveVideoProcessor(VideoProcessorBase):
             
         except Exception:
             pass
-
 
 # Login/Register Page
 def show_login_register_page():
@@ -346,7 +243,6 @@ def show_login_register_page():
             else:
                 st.warning("Please enter name and capture face image")
 
-
 # Live Monitor Page - TRUE REAL-TIME
 def live_monitor_page():
     st.markdown("### Real-Time Live Monitoring")
@@ -358,10 +254,12 @@ def live_monitor_page():
     with col_video:
         st.markdown("**Live Video Feed**")
         
-        # REPLACE THIS BLOCK:
+        # RTC configuration for reliable WebRTC
         rtc_configuration = RTCConfiguration({
-            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}],
-            "iceTransportPolicy": "all"
+            "iceServers": [
+                {"urls": ["stun:stun.l.google.com:19302"]},
+                {"urls": ["stun:stun1.l.google.com:19302"]}
+            ]
         })
         
         # Start REAL-TIME WebRTC streamer
@@ -372,9 +270,9 @@ def live_monitor_page():
             video_processor_factory=LiveVideoProcessor,
             media_stream_constraints={
                 "video": {
-                    "width": {"ideal": 640, "max": 1280},
-                    "height": {"ideal": 480, "max": 720},
-                    "frameRate": {"ideal": 30, "max": 30}
+                    "width": {"ideal": 640},
+                    "height": {"ideal": 480},
+                    "frameRate": {"ideal": 30}
                 },
                 "audio": False
             },
@@ -423,7 +321,6 @@ def live_monitor_page():
         </div>
         ''', unsafe_allow_html=True)
 
-
 # Analytics Page
 def analytics_page():
     st.markdown("### Analytics Dashboard")
@@ -467,7 +364,6 @@ def analytics_page():
             
     except Exception:
         st.error("Analytics temporarily unavailable")
-
 
 # Main Dashboard
 def show_main_dashboard():
@@ -514,7 +410,6 @@ def show_main_dashboard():
     
     with tab_analytics:
         analytics_page()
-
 
 # MAIN APPLICATION
 def main():
