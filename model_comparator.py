@@ -6,6 +6,7 @@ from collections import deque
 import tensorflow as tf
 import os
 import threading
+import warnings
 
 # Force CPU for TensorFlow
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -24,25 +25,25 @@ class ModelComparator:
     def __init__(self, config: dict = None):
         self.config = config or {}
         
-        # Initialize MediaPipe - FORCE CPU ONLY
+        # Initialize MediaPipe
         self.mp_face_mesh = mp.solutions.face_mesh
         self.mp_pose = mp.solutions.pose
         
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
-        
-        # model_complexity=0 is fastest (lite model), 1=full, 2=heavy
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=0,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        with SuppressEGL():
+            self.face_mesh = self.mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
+            
+            self.pose = self.mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=0,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
         
         # Initialize custom models
         self.custom_eye_model = None
